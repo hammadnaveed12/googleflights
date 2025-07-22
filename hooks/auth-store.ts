@@ -20,6 +20,10 @@ const MOCK_USERS: User[] = [
   },
 ];
 
+const USER_CREDENTIALS: { [email: string]: string } = {
+  "demo@example.com": "password",
+};
+
 export const [AuthContext, useAuth] = createContextHook(() => {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -60,24 +64,28 @@ export const [AuthContext, useAuth] = createContextHook(() => {
     try {
       setState({ ...state, isLoading: true, error: null });
 
-      const user = MOCK_USERS.find((u) => u.email === credentials.email);
-
-      if (user && credentials.password === "password") {
-        await AsyncStorage.setItem("user", JSON.stringify(user));
-        setState({
-          user,
-          isLoading: false,
-          error: null,
-        });
-        return true;
-      } else {
-        setState({
-          ...state,
-          isLoading: false,
-          error: "Invalid email or password",
-        });
-        return false;
+      // Check if user exists and password matches
+      const storedPassword = USER_CREDENTIALS[credentials.email];
+      if (storedPassword && storedPassword === credentials.password) {
+        // Find the user in MOCK_USERS
+        const user = MOCK_USERS.find((u) => u.email === credentials.email);
+        if (user) {
+          await AsyncStorage.setItem("user", JSON.stringify(user));
+          setState({
+            user,
+            isLoading: false,
+            error: null,
+          });
+          return true;
+        }
       }
+
+      setState({
+        ...state,
+        isLoading: false,
+        error: "Invalid email or password",
+      });
+      return false;
     } catch (error) {
       setState({
         ...state,
@@ -112,7 +120,9 @@ export const [AuthContext, useAuth] = createContextHook(() => {
         createdAt: new Date().toISOString(),
       };
 
+      // Store the user and their password
       MOCK_USERS.push(newUser);
+      USER_CREDENTIALS[credentials.email] = credentials.password;
 
       await AsyncStorage.setItem("user", JSON.stringify(newUser));
       setState({
